@@ -9,18 +9,13 @@ except ImportError:
         def emit(self, record):
             pass
 import sys
-import requests
-import json
-import lxml.etree as etree
 import getopt
 import configparser
 import signal
 from osgeo import gdal
 from osgeo import gdalconst
-import zipfile
-import gzip
-import tarfile
-import numpy
+import numpy as np
+import numpy.ma as ma
 import matplotlib.pyplot as plt
 
 
@@ -30,16 +25,24 @@ class RasterVectorAnalysis:
     """
 
     @staticmethod
-    def plot_tif(tif_path):
+    def plot_tif(tif_path, cheap_cloud_mask=None):
         """
         Plots the raster created from a TIF file given the path to the TIF.
         :param tif_path: string containing path to the TIF file
+        :param cheap_cloud_mask: numpy array used to mask the dataset
         :return:
         """
         dataset = gdal.Open(tif_path, gdalconst.GA_ReadOnly)
         dataset_array = dataset.ReadAsArray()
+        if cheap_cloud_mask is not None:
+            # Select from the scene where the values are very high and mask them
+            dataset_array = ma.masked_array(dataset_array, mask=cheap_cloud_mask)
         plt.imshow(dataset_array, interpolation='nearest', vmin=0, cmap=plt.cm.gist_earth)
         plt.show()
+
+        # Close the dataset
+        dataset = None
+
 
 
 
@@ -65,6 +68,7 @@ ARG_VALUES = {"server=": "",
               "logfilepath=": ""
               }
 
+
 def signal_handler(signal, frame):
     """
     Handles signals such as SIGINT.
@@ -74,6 +78,7 @@ def signal_handler(signal, frame):
     # Print Ctrl+C message and exit
     LOGGER.info('You pressed Ctrl+C! Script Exited.')
     sys.exit(0)
+
 
 def process_args():
     """
